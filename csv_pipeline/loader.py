@@ -1,36 +1,76 @@
+from datetime import datetime
+from io import StringIO
 
-Raw Dataset:
-Let's say you have a CSV file named sales_data.csv with the following columns:
-OrderID: Unique identifier for each order
-OrderDate: Date when the order was placed
-CustomerID: Unique identifier for the customer
-ProductID: Unique identifier for the product
-Quantity: Number of items ordered
-UnitPrice: Price per item
-TotalAmount: Total amount of the order (Quantity * UnitPrice)
- 
-Example of the raw data:
- 
-OrderID,OrderDate,CustomerID,ProductID,Quantity,UnitPrice,TotalAmount ERROR
-1001,2024-08-01,C001,P001,10,15.00,150.00                                             CustomerID 
-1002,2024-08-01,C002,P002,5,25.00,125.00
-1003,2024-08-02,C001,P003,2,30.00,60.00
-...
+import pandas as pd
+from adapters import BlobAdapter, DBAdapter
 
 
-Data Loading: Trigger Data Loading -> AWS S3 trigger on storage change
-> dict Can be very large |  -> to my consumer 
-Load the cleaned and transformed data into a relational database (e.g., PostgreSQL). # Should use adapter based code -> default SQLite
-Create two tables: Orders and SalesSummary. -> Create if not exists
-Orders table should have columns matching the CSV file.
-SalesSummary table should contain aggregated sales data with columns CustomerID, ProductID, and TotalSales.
-		On success clear cleaned data from storage AWS S3
-		
+class DataLoader:
+    def __init__(self, storage_adapter: BlobAdapter, db_adapter: DBAdapter):
+        self.storage_adapter = storage_adapter
+        self.db_adapter = db_adapter
+        self.error_rows = []
 
+    def log_error(self, row, error_message):
+        # Append the error message to the row dictionary
+        row["Error"] = error_message
+        self.error_rows.append(row)
 
-# Overall the script should take a config connect to Queue (Default in-mem | Should use adapter based code supporting connection to RabbitMQ and Kafka)
-# -> Start reading from the storage locations from queue using respective storage adapter (default current filesystem) -> and start writing into the DB
+    def save_error_log(self, error_file_name):
+        if self.error_rows:
+            # Create a DataFrame from the error rows
+            error_df = pd.DataFrame(self.error_rows)
+            # Save to a CSV using storage adapter
+            csv_data = error_df.to_csv(index=False)
+            self.storage_adapter.save_data(error_file_name, csv_data)
 
-# Make this queue thing generic so that it can be reused for transformation 
-# So 1 queue to know if an extracted data is ready to transform
-# And 1 queue to know if a transformed data is ready to load
+    def process_file(self, file_name_with_path: str):
+        raw_data = self.storage_adapter.read_data(
+            file_name_with_path=file_name_with_path)
+        data = pd.read_csv(StringIO(raw_data), dtype=str, on_bad_lines="warn")
+
+        # Process orders and handle errors
+        data.apply(self.process_order, axis=1)
+
+        # Aggregate sales summary
+        summary_df = data.groupby(["CustomerID", "ProductID"]).agg(
+            {"TotalAmount": "sum"}).reset_index()
+
+        # Process sales summary and handle errors
+        summary_df.apply(self.process_sales_summary, axis=1)
+
+        # Save error log if there are any errors
+        error_file_name = f"error_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        self.save_error_log(error_file_name)
+
+        # Delete original data file after processing
+        self.storage_adapter.delete_data(
+            file_name_with_path=file_name_with_path)
+
+    def process_order(self, row):
+        try:
+            order_data = {
+                "OrderID": row["OrderID"],
+                "OrderDate": row["OrderDate"],
+                "CustomerID": row["CustomerID"],
+                "ProductID": row["ProductID"],
+                "Quantity": row["Quantity"],
+                "UnitPrice": row["UnitPrice"],
+                "TotalAmount": row["TotalAmount"],
+            }
+            self.db_adapter.insert_order(order_data)
+        except Exception as e:
+            # Log the error and the row that caused it
+            self.log_error(row.to_dict(), str(e))
+
+    def process_sales_summary(self, row):
+        try:
+            summary_data = {
+                "CustomerID": row["CustomerID"],
+                "ProductID": row["ProductID"],
+                "TotalSales": row["TotalAmount"],
+            }
+            self.db_adapter.insert_sales_summary(summary_data)
+        except Exception as e:
+            # Log the error and the row that caused it
+            self.log_error(row.to_dict(), str(e))
