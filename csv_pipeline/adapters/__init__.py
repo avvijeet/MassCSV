@@ -1,3 +1,4 @@
-from csv_pipeline.adapters.blobs import BlobAdapter, FileSystemBlobAdapter, S3BlobAdapter  # noqa
-from csv_pipeline.adapters.databases import DBAdapter, PostgreSQLAdapter, SQLiteAdapter  # noqa
-from csv_pipeline.adapters.queues import InMemQueueAdapter, KafkaAdapter, QueueAdapter, RabbitMQAdapter  # noqa
+# Internal Imports
+from adapters.blobs import BlobAdapter, FileSystemBlobAdapter, S3BlobAdapter  # noqa
+from adapters.databases import DBAdapter, PostgreSQLAdapter, SQLiteAdapter  # noqa
+from adapters.queues import InMemQueueAdapter, QueueAdapter, RabbitMQAdapter  # noqa

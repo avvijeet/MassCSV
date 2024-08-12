@@ -1,14 +1,12 @@
+# External Imports
 import os
 from abc import ABC, abstractmethod
 
 import boto3
-
-from csv_pipeline.config import Config
+from config import Config
 
 
 class BlobAdapter(ABC):
-
-    @abstractmethod
     def __init__(self, config: Config):
         self.config = config
         self.storage_type = config.STORAGE_TYPE
@@ -29,6 +27,7 @@ class BlobAdapter(ABC):
 class S3BlobAdapter(BlobAdapter):
     def __init__(self, config: Config):
         super().__init__(config=config)
+        # NOTE: Assumption: Assumed IAM Role inside VPC or AWS envs already set in env
         self.s3 = boto3.client("s3")
 
     def read_data(self, file_name_with_path: str):
@@ -63,3 +62,7 @@ class FileSystemBlobAdapter(BlobAdapter):
         file_path = os.path.join(self.config.STORAGE_BASE_PATH, file_name)
         with open(file_path, "wb") as f:
             f.write(data)
+
+
+if __name__ == "__main__":
+    pass

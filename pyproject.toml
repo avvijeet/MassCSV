@@ -1,0 +1,9 @@
+[tool.isort]
+atomic = true
+py_version = 311
+default_section = 'THIRDPARTY'
+known_first_party = 'csv_pipeline/'
+combine_as_imports = true
+overwrite_in_place = true
+import_heading_stdlib = 'External Imports'
+import_heading_firstparty = 'Internal Imports'

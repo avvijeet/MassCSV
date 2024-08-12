@@ -1,8 +1,8 @@
+# External Imports
 from abc import ABC, abstractmethod
 
+from config import Config
 from sqlalchemy import create_engine, text
-
-from csv_pipeline.config import Config
 
 
 class DBAdapter(ABC):
@@ -41,15 +41,25 @@ class DBAdapter(ABC):
                     """
                 )
             )
+            # Create indexes separately
+            # NOTE: Assuming query can be done on any column
+            connection.execute(
+                text("CREATE INDEX IF NOT EXISTS idx_orders_order_id ON Orders (OrderID);"))
+            connection.execute(
+                text("CREATE INDEX IF NOT EXISTS idx_orders_order_date ON Orders (OrderDate);"))
+            connection.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON Orders (CustomerID);"))
+            connection.execute(
+                text("CREATE INDEX IF NOT EXISTS idx_orders_product_id ON Orders (ProductID);"))
+            connection.execute(
+                text("CREATE INDEX IF NOT EXISTS idx_orders_quantity ON Orders (Quantity);"))
+            connection.execute(
+                text("CREATE INDEX IF NOT EXISTS idx_orders_unit_price ON Orders (UnitPrice);"))
+            connection.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_orders_total_amount ON Orders (TotalAmount);"))
             connection.execute(
                 text(
-                    """
-                    CREATE INDEX IF NOT EXISTS idx_orders_customer_id ON Orders (CustomerID);
-                    CREATE INDEX IF NOT EXISTS idx_orders_product_id ON Orders (ProductID);
-                    CREATE INDEX IF NOT EXISTS idx_orders_order_date ON Orders (OrderDate);
-                    CREATE INDEX IF NOT EXISTS idx_orders_customer_product ON Orders (CustomerID, ProductID);
-                    """
-                )
+                    "CREATE INDEX IF NOT EXISTS idx_orders_customer_product ON Orders (CustomerID, ProductID);")
             )
 
             # Creating SalesSummary table with indexed columns
@@ -66,12 +76,19 @@ class DBAdapter(ABC):
             )
             connection.execute(
                 text(
-                    """
-                    CREATE INDEX IF NOT EXISTS idx_sales_summary_customer_id ON SalesSummary (CustomerID);
-                    CREATE INDEX IF NOT EXISTS idx_sales_summary_product_id ON SalesSummary (ProductID);
-                    CREATE INDEX IF NOT EXISTS idx_sales_summary_total_sales ON SalesSummary (TotalSales);
-                    CREATE INDEX IF NOT EXISTS idx_sales_summary_customer_product ON SalesSummary (CustomerID, ProductID);
-                    """
+                    "CREATE INDEX IF NOT EXISTS idx_sales_summary_customer_id ON SalesSummary (CustomerID);")
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_sales_summary_product_id ON SalesSummary (ProductID);")
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_sales_summary_total_sales ON SalesSummary (TotalSales);")
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS idx_sales_summary_customer_product ON SalesSummary (CustomerID, ProductID);"
                 )
             )
 
@@ -128,3 +145,7 @@ class PostgreSQLAdapter(DBAdapter):
 
     def insert_sales_summary(self, summary_data):
         return super().insert_sales_summary(summary_data=summary_data)
+
+
+if __name__ == "__main__":
+    pass

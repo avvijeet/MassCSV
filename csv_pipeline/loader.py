@@ -1,7 +1,10 @@
+# External Imports
 from datetime import datetime
 from io import StringIO
 
 import pandas as pd
+
+# Internal Imports
 from adapters import BlobAdapter, DBAdapter
 
 
@@ -74,3 +77,7 @@ class DataLoader:
         except Exception as e:
             # Log the error and the row that caused it
             self.log_error(row.to_dict(), str(e))
+
+
+if __name__ == "__main__":
+    pass
